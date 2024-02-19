@@ -105,7 +105,7 @@ keycloak:
 
 ### References
 
-- [Keycloak base theme source code](https://github.com/keycloak/keycloak/tree/main/themes/src/main/resources-community/theme/base)
+- [Keycloak base theme source code](https://github.com/keycloak/keycloak/tree/main/themes/src/main/resources/theme/base)
 - [Adding a language to a realm](https://www.keycloak.org/docs/23.0.6/server_development/#adding-a-language-to-a-realm)
 - [Adding a stylesheet to a theme](https://www.keycloak.org/docs/23.0.6/server_development/#add-a-stylesheet-to-a-theme)
 - [Final result of above instructions](https://github.com/samya-ak/keycloak-localization/tree/main)
