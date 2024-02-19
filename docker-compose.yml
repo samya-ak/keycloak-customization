@@ -1,8 +1,8 @@
-version: "0.1"
+version: "3.7"
 services:
   postgres:
     container_name: postgres_container
-    image: postgres
+    image: postgres:15
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -12,8 +12,6 @@ services:
       - postgres:/data/postgres
     ports:
       - "5432:5432"
-    networks:
-      - postgres
     restart: unless-stopped
 
   keycloak:
@@ -21,11 +19,10 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      DB_VENDOR: postgres
-      DB_ADDR: postgres
-      DB_DATABASE: postgres
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
@@ -37,12 +34,6 @@ services:
       - --spi-theme-static-max-age=-1
       - --spi-theme-cache-themes=false
       - --spi-theme-cache-templates=false
-
-networks:
-  postgres:
-    driver: bridge
-  keycloak:
-    driver: bridge
 
 volumes:
   postgres:

@@ -2,6 +2,7 @@
 
 - [Keycloak localization](#keycloak-localization)
 - [Keycloak emails](#keycloak-emails)
+- [Database configuration](#database-configuration)
 
 ## Keycloak localization
 
@@ -25,7 +26,7 @@ This doc talks about how we can run `keycloak` project in a docker container and
     import=common/keycloak
 ```
 
-2. Create the file `<THEME TYPE>/messages/messages\_<LOCALE>.properties` in the directory of your theme.
+2. Create the file `<THEME TYPE>/messages/messages_<LOCALE>.properties` in the directory of your theme.
 
 3. Add this file to the locales property in <THEME TYPE>/theme.properties. For a language to be available to users the realms login, account and email, the theme has to support the language, so you need to add your language for those theme types.
    For example, to add Nepali translations to the `custom-theme` theme create the file `themes/custom-theme/login/messages/messages_np.properties` with the following content. If you omit a translation for messages, they will use English.
@@ -78,27 +79,45 @@ ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
 9. Use this Dockerfile in `docker-compose.yml` with a service called keycloak like
 
 ```yaml
-keycloak:
-  build:
-    context: .
-    dockerfile: Dockerfile
-  environment:
-    DB_VENDOR: postgres
-    DB_ADDR: postgres
-    DB_DATABASE: postgres
-    DB_USER: postgres
-    DB_PASSWORD: postgres
-    KEYCLOAK_ADMIN: admin
-    KEYCLOAK_ADMIN_PASSWORD: admin
-  ports:
-    - 7777:8080
-  depends_on:
-    - postgres
-  command:
-    - start-dev
-    - --spi-theme-static-max-age=-1
-    - --spi-theme-cache-themes=false
-    - --spi-theme-cache-templates=false
+version: "3.7"
+services:
+  postgres:
+    container_name: postgres_container
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: keycloak
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  keycloak:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - 7777:8080
+    depends_on:
+      - postgres
+    command:
+      - start-dev
+      - --spi-theme-static-max-age=-1
+      - --spi-theme-cache-themes=false
+      - --spi-theme-cache-templates=false
+
+volumes:
+  postgres:
 ```
 
 10. Finally run `docker compose up --build` to start the keycloak server
@@ -146,3 +165,71 @@ emailVerificationBodyHtml=<p>Someone has created a {2} account with this email a
 ### Reference
 
 [Emails docs](https://www.keycloak.org/docs/23.0.6/server_development/#emails)
+
+## Database configuration
+
+### Description
+
+If you run keycloak in docker with command like
+
+```shell
+docker run -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:23.0.6 start-dev
+```
+
+it uses default database.
+
+> By default, the server uses the dev-file database. This is the default database that the server will use to persist data and only exists for development use-cases.
+> The dev-file database is not suitable for production use-cases, and must be replaced before deploying to production.
+
+Here, dev-file denotes the use of the [H2](https://www.h2database.com/html/main.html) db internally. So, data will not persist on every restart of keycloak server.
+
+For more fluent developer experience, we can use database like postgres to persist data. We can do this by using configuration like:
+
+```docker-compose
+  keycloak:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres/keycloak
+      KC_DB_USERNAME: postgres
+      KC_DB_PASSWORD: postgres
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - 7777:8080
+    depends_on:
+      - postgres
+    command:
+      - start-dev
+      - --spi-theme-static-max-age=-1
+      - --spi-theme-cache-themes=false
+      - --spi-theme-cache-templates=false
+```
+
+#### In-built supported databases and their tested versions.
+
+| Database             | Option value | Tested version |
+| -------------------- | ------------ | -------------- |
+| MariaDB Server       | mariadb      | 10.11          |
+| Microsoft SQL Server | mssql        | 2022           |
+| MySQL                | mysql        | 8.0            |
+| Oracle Database      | oracle       | 19.3           |
+| PostgreSQL           | postgres     | 15             |
+
+#### Mongo Support
+
+The latest version of keycloak doesn't support nosql databases. You can read more about it [here](https://lists.jboss.org/pipermail/keycloak-user/2017-February/009417.html).
+
+#### Should you share Keycloak db schema with your application's db schema?
+
+Technically you can but, it "produces very tight coupling between the app and the authentication provider while they are intended to be two very distinct instances."
+Ideally, you would use a single db but with different schemas for keycloak and your application.
+
+### References
+
+- [On H2 db](https://github.com/keycloak/keycloak/issues/22231#issuecomment-1689699362)
+- [Configuring the database](https://www.keycloak.org/server/db)
+- [Sharing keycloak and application db](https://keycloak.discourse.group/t/keycloak-db-or-using-custom-db-when-creating-project-from-scratch/23241/4)
+- [Sharing keycloak and application db2](https://keycloak.discourse.group/t/risks-of-running-a-shared-database-between-keycloak-and-application-s/7344/2)
